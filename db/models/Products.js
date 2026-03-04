@@ -11,18 +11,32 @@ const productSchema =new mongoose.Schema({
     category:{
         type:[String],
         required:true
-    },
+    },//Here I kept subcategory as string not an array of string as I thinks subcategory will be different for myecommerce app
     subcategory:{
-        type:[String],
+        type:String,
         required:true
     },
-     size:{
-        type:[String],
+    variants:[{
+    size:{
+        type:String,
+        required:true,
+        enum: ["S", "M", "L", "XL", "XXL"]
+    },
+    stock:{
+        type:Number,
+        min:0,
         required:true
     },
     prices:{
         type:Number,
-        required:true
+        required:true,
+        min:0
+    },
+    }],
+    minPrice:{
+        type:Number,
+        required:true,
+        min:0  //Hey we will use this minPrice to sort db using minPrice and we will calculate this minPrice while product creation or variant updation
     },
     bestSeller:{
         type:Boolean,

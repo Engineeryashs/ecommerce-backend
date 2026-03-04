@@ -16,10 +16,20 @@ router.post("/createProduct", authMiddleware, adminMiddleware, upload.fields([
     { name: "image5", maxCount: 5 }
 ]), async (req, res) => {
     try {
-
+        //req.body.bestSeller=req.body.bestSeller===true;
+        req.body.category = JSON.parse(req.body.category);
+        req.body.variants = JSON.parse(req.body.variants);
+        const variantArray=req.body.variants;
+        let minPrice=Infinity;
+        //Qki directly humlog variants.price s sort nahi kar skte y vague hai isliye we calculate minPrice to sort it out in db
+        variantArray.forEach(element => {
+            minPrice=Math.min(element.prices,minPrice);
+        });
+        req.body.minPrice=minPrice;
+        console.log("SY" + req.body.category + "RK" + req.body.variants);
         const parsedData = productsSchema.safeParse(req.body);
         console.log(parsedData.data)
-        console.log("Hello world" + parsedData.prices)
+        // console.log("Hello world" + parsedData.variant[0].prices)
         const image1 = req.files.image1 && req.files.image1[0];
         const image2 = req.files.image2 && req.files.image2[0];
         const image3 = req.files.image3 && req.files.image3[0];
@@ -27,7 +37,8 @@ router.post("/createProduct", authMiddleware, adminMiddleware, upload.fields([
         const image5 = req.files.image5 && req.files.image5[0];
         if (!parsedData.success) {
             return res.status(403).json({
-                msg: "Invalid types"
+                msg: "Invalid types",
+                error: parsedData.error.format()
             })
         }
         /* console.log(
@@ -35,7 +46,7 @@ router.post("/createProduct", authMiddleware, adminMiddleware, upload.fields([
        typeof adminMiddleware,
        typeof upload
      );*/
-        const { title, description, category, subcategory, prices, bestSeller, size } = parsedData.data;
+        const { title, description, category, subcategory, bestSeller, variants } = parsedData.data;
         console.log(image1, image2, image3, image4, image5)
         //We are separating which image is given and which image files are undefined so thats why we have written above logic also
         const images = [image1, image2, image3, image4, image5].filter(image => image !== undefined)
@@ -53,9 +64,9 @@ router.post("/createProduct", authMiddleware, adminMiddleware, upload.fields([
             description: description,
             category: category,
             subcategory: subcategory,
-            prices: prices,
             bestSeller: Boolean(bestSeller === true ? true : false),
-            size: size,
+            variants: variants,
+            minPrice:minPrice,
             images: uploadedImage
         })
 
@@ -76,16 +87,17 @@ router.post("/createProduct", authMiddleware, adminMiddleware, upload.fields([
 chahe user ho ya nahi ho ya chahe admin ho getAllproducts ya saare products ko hum publicly
 kabhi bhi fetch kar skte hain though we can create frontend pagination but for 
 scalable applications we will use back-end pagination*/
+/* A lot of mongodb query is there in this router so try to revise this router*/
 router.get("/getAllProducts", async (req, res) => {
     try {
-        const page =  1;
-        const limit =10;
+        const page = req.query.page||1;
+        const limit = req.query.limit||10;
         const skip = (page - 1) * limit;
 
         const category = req.query.category;
         const subcategory = req.query.subcategory;
         const search = req.query.search;
-        const sort=req.query.sort;
+        const sort = req.query.sort;
         /*
        const filteredProducts=Products.filter((element)=>{
            return element.title.toLowerCase().includes(search.toLowerCase());
@@ -94,46 +106,47 @@ router.get("/getAllProducts", async (req, res) => {
            or we want to directly query inside the database so we will do as follows*/
 
         const filter = {};
-        const sortOptions={};
+        const sortOptions = {};
         if (search) {
-            filter.title={$regex:search, $options:"i"} //name that starts with or ends with or contains string as search have
+            filter.title = { $regex: search, $options: "i" } //name that starts with or ends with or contains string as search have
         }
         if (category) {
-            filter.category = category;
+              const categories = Array.isArray(category) ? category : category.split(',');
+    filter.category = { $in: categories };
         }
         if (subcategory) {
-            filter.subcategory = subcategory;
-        }
-       if(sort==="sort_asc")
-       {
-        sortOptions.prices=1;
-       }
-       if(sort==="sort_desc"){
-        sortOptions.prices=-1;
-       }
-        const getProducts = await Products.find(filter).sort(sortOptions).skip(skip).limit(limit);
-        /*See the skip and limit methods in mongodb also for payment app i used
-        mongodb transactions of sessions for atomicity of the payments
-        Also sort method first sort all the matching objects of filter then it skips skip elements 
-        and then it limits limit no of elements*/
-        const total = await Products.countDocuments(filter);
-        if (getProducts.length === 0) {
-            return res.json({
-                msg: "No products found",
-                products: []
-            })
-        }
+           const subcategories = Array.isArray(subcategory) ? subcategory : subcategory.split(',');
+    filter.subcategory = { $in: subcategories };
+    }
+    if (sort === "sort_asc") {
+        sortOptions.minPrice = 1;
+    }
+    if (sort === "sort_desc") {
+        sortOptions.minPrice= -1;
+    }
+    const getProducts = await Products.find(filter).sort(sortOptions).skip(skip).limit(limit);
+    /*See the skip and limit methods in mongodb also for payment app i used
+    mongodb transactions of sessions for atomicity of the payments
+    Also sort method first sort all the matching objects of filter then it skips skip elements 
+    and then it limits limit no of elements*/
+    const total = await Products.countDocuments(filter);
+    if (getProducts.length === 0) {
         return res.json({
-            msg: "Products found",
-            products: getProducts,
-            totalPage: Math.ceil(total / limit),
-            page: page
-        })
-    } catch (error) {
-        res.status(500).json({
-            msg: "Internal Server Error"
+            msg: "No products found",
+            products: []
         })
     }
+    return res.json({
+        msg: "Products found",
+        products: getProducts,
+        totalPage: Math.ceil(total / limit),
+        page: page
+    })
+} catch (error) {
+    res.status(500).json({
+        msg: "Internal Server Error"
+    })
+}
 })
 
 //Now what if admin wants to delete that product or remove that product by using some productId

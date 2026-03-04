@@ -31,6 +31,7 @@ router.post("/signup", async (req, res) => {
                 password: hashedPassword
             })
             const token = jwt.sign({
+                userId:newUser._id,
                 email: email,
                 role: newUser.role
             }, JWT_SECRET)
@@ -81,6 +82,7 @@ router.post("/signin", async (req, res) => {
     }
   
     const token=jwt.sign({
+        userId:isUser._id,
         email:isUser.email,
         role:isUser.role
     },JWT_SECRET);

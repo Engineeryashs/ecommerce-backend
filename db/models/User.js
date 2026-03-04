@@ -18,11 +18,6 @@ const userSchema=new mongoose.Schema({
     password:{
         type:String,
         required:true,
-    },
-    cart:{
-        type:Object,
-        default:{},
-
     }
 })
 const User=mongoose.model("User",userSchema);
