@@ -1,7 +1,6 @@
 //Sabse pehle hum log ek Order model banayege
 //A user can have many orders but an order will have only one user assosciated with it
 const mongoose=require("mongoose");
-const { required } = require("zod/mini");
 /*Since price keeps changing so we are using orderSchema and fetching price from
 the products directly we will not fetch price from the cart because price keeps changing*/
 const orderSchema=new mongoose.Schema({
@@ -88,3 +87,5 @@ user:{
         default:"Order Placed"
     }
 })
+const Order=mongoose.model("Order",orderSchema);
+module.exports=Order;
